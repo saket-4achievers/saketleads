@@ -7,7 +7,8 @@ import jsPDF from 'jspdf';
 
 export default function SendTemplateModal({ contacts, onClose }) {
     const [templates, setTemplates] = useState([]);
-    const [selectedTemplate, setSelectedTemplate] = useState(null);
+    const [selectedTemplates, setSelectedTemplates] = useState([]);
+    const [currentTemplate, setCurrentTemplate] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showPreview, setShowPreview] = useState(false);
     const [previewContact, setPreviewContact] = useState(contacts[0] || null);
@@ -39,8 +40,8 @@ export default function SendTemplateModal({ contacts, onClose }) {
             .replace(/\{\{phone\}\}/g, contact.phone || '');
     };
 
-    const generatePDF = async (contact) => {
-        if (!selectedTemplate?.htmlContent) {
+    const generatePDF = async (contact, template) => {
+        if (!template?.htmlContent) {
             return null;
         }
 
@@ -73,28 +74,31 @@ export default function SendTemplateModal({ contacts, onClose }) {
     };
 
     const handleSend = async () => {
-        if (!selectedTemplate) {
-            alert('Please select a template');
+        if (selectedTemplates.length === 0) {
+            alert('Please select at least one template');
             return;
         }
 
         // Warning about popups
-        if (contacts.length > 1) {
-            alert(`Opening ${contacts.length} WhatsApp windows. Please allow popups for this site if they are blocked.`);
+        if (contacts.length * selectedTemplates.length > 1) {
+            alert(`Opening ${contacts.length * selectedTemplates.length} WhatsApp windows. Please allow popups for this site if they are blocked.`);
         }
 
         // Send to each contact
+        // Send to each contact
         for (const contact of contacts) {
-            const message = replaceVariables(selectedTemplate.message, contact);
-            const cleanPhone = contact.phone.replace(/\D/g, '');
-            const encodedMessage = encodeURIComponent(message);
+            for (const template of selectedTemplates) {
+                const message = replaceVariables(template.message, contact);
+                const cleanPhone = contact.phone.replace(/\D/g, '');
+                const encodedMessage = encodeURIComponent(message);
 
-            // Open WhatsApp with message
-            window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, '_blank');
+                // Open WhatsApp with message
+                window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, '_blank');
 
-            // Small delay between opening windows
-            if (contacts.length > 1) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Small delay between opening windows
+                if (contacts.length * selectedTemplates.length > 1) {
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                }
             }
         }
 
@@ -102,7 +106,10 @@ export default function SendTemplateModal({ contacts, onClose }) {
     };
 
     const handleDownloadPDF = async () => {
-        if (!selectedTemplate?.htmlContent || !previewContact) {
+        // Use current template for preview download
+        const templateToDownload = currentTemplate;
+
+        if (!templateToDownload?.htmlContent || !previewContact) {
             alert('No HTML content to generate PDF');
             return;
         }
@@ -139,7 +146,7 @@ export default function SendTemplateModal({ contacts, onClose }) {
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
             pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            pdf.save(`${selectedTemplate.name}-${previewContact.name}.pdf`);
+            pdf.save(`${templateToDownload.name}-${previewContact.name}.pdf`);
 
             alert('PDF downloaded successfully!');
         } catch (error) {
@@ -150,13 +157,23 @@ export default function SendTemplateModal({ contacts, onClose }) {
         }
     };
 
-    const previewMessage = selectedTemplate && previewContact
-        ? replaceVariables(selectedTemplate.message, previewContact)
+    const previewMessage = currentTemplate && previewContact
+        ? replaceVariables(currentTemplate.message, previewContact)
         : '';
 
-    const previewHtml = selectedTemplate && previewContact && selectedTemplate.htmlContent
-        ? replaceVariables(selectedTemplate.htmlContent, previewContact)
+    const previewHtml = currentTemplate && previewContact && currentTemplate.htmlContent
+        ? replaceVariables(currentTemplate.htmlContent, previewContact)
         : '';
+
+    const addTemplate = () => {
+        if (currentTemplate && !selectedTemplates.find(t => t.id === currentTemplate.id)) {
+            setSelectedTemplates([...selectedTemplates, currentTemplate]);
+        }
+    };
+
+    const removeTemplate = (templateId) => {
+        setSelectedTemplates(selectedTemplates.filter(t => t.id !== templateId));
+    };
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -193,28 +210,54 @@ export default function SendTemplateModal({ contacts, onClose }) {
                             {/* Template Selection */}
                             <div className="mb-6">
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Select Template
+                                    Select Templates to Send
                                 </label>
-                                <select
-                                    value={selectedTemplate?.id || ''}
-                                    onChange={(e) => {
-                                        const template = templates.find(t => t.id === e.target.value);
-                                        setSelectedTemplate(template);
-                                        setShowPreview(false);
-                                    }}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                                >
-                                    <option value="">-- Select a template --</option>
-                                    {templates.map((template) => (
-                                        <option key={template.id} value={template.id}>
-                                            {template.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="flex gap-2 mb-3">
+                                    <select
+                                        value={currentTemplate?.id || ''}
+                                        onChange={(e) => {
+                                            const template = templates.find(t => t.id === e.target.value);
+                                            setCurrentTemplate(template);
+                                            setShowPreview(false);
+                                        }}
+                                        className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                                    >
+                                        <option value="">-- Select a template --</option>
+                                        {templates.map((template) => (
+                                            <option key={template.id} value={template.id}>
+                                                {template.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={addTemplate}
+                                        disabled={!currentTemplate}
+                                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+
+                                {/* Selected Templates List */}
+                                {selectedTemplates.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {selectedTemplates.map(template => (
+                                            <div key={template.id} className="bg-green-50 border border-green-200 text-green-800 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                                                <span>{template.name}</span>
+                                                <button
+                                                    onClick={() => removeTemplate(template.id)}
+                                                    className="hover:text-red-500"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Preview Contact Selection (for multi-contact) */}
-                            {contacts.length > 1 && selectedTemplate && (
+                            {contacts.length > 1 && (
                                 <div className="mb-6">
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Preview for Contact
@@ -237,7 +280,7 @@ export default function SendTemplateModal({ contacts, onClose }) {
                             )}
 
                             {/* Preview Toggle */}
-                            {selectedTemplate && (
+                            {currentTemplate && (
                                 <div className="mb-4">
                                     <button
                                         onClick={() => setShowPreview(!showPreview)}
@@ -253,7 +296,7 @@ export default function SendTemplateModal({ contacts, onClose }) {
                             )}
 
                             {/* Message Preview */}
-                            {showPreview && selectedTemplate && (
+                            {showPreview && currentTemplate && (
                                 <div className="mb-6 space-y-4">
                                     {/* Text Message Preview */}
                                     <div>
@@ -300,7 +343,7 @@ export default function SendTemplateModal({ contacts, onClose }) {
                 <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex gap-3 rounded-b-2xl">
                     <button
                         onClick={handleSend}
-                        disabled={!selectedTemplate}
+                        disabled={selectedTemplates.length === 0}
                         className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-all font-semibold shadow-md hover:shadow-lg"
                     >
                         <Send size={20} />
