@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import ContactCard from '@/components/ContactCard';
 import SendTemplateModal from '@/components/SendTemplateModal';
-import { Upload, RefreshCw, FileSpreadsheet, Plus, Trash2, MessageSquare, Share2, TrendingUp, FileText } from 'lucide-react';
+import { Upload, RefreshCw, FileSpreadsheet, Plus, Trash2, MessageSquare, Share2, TrendingUp, FileText, Activity } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
@@ -311,6 +311,14 @@ export default function Home() {
                         Contact Manager
                     </h1>
                     <div className="flex gap-2">
+                        <Link href="/dashboard">
+                            <button
+                                className="p-2 text-indigo-500 hover:text-indigo-700 rounded-full hover:bg-indigo-50"
+                                title="Dashboard"
+                            >
+                                <Activity size={20} />
+                            </button>
+                        </Link>
                         <Link href="/templates">
                             <button
                                 className="p-2 text-purple-500 hover:text-purple-700 rounded-full hover:bg-purple-50"

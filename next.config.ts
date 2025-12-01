@@ -10,6 +10,7 @@ import type { NextConfig } from "next";
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
   // Config options here
+  turbopack: {},
 };
 
 module.exports = withPWA(nextConfig);
