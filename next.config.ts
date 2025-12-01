@@ -5,7 +5,11 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
 });
 
+import type { NextConfig } from "next";
+
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig: NextConfig = {
+  // Config options here
+};
 
 module.exports = withPWA(nextConfig);
