@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getContacts, updateStatus, updateComment, deleteContacts } from '@/lib/googleSheets';
+import { getContacts, updateStatus, updateComment, updateName, updatePhone, deleteContacts } from '@/lib/googleSheets';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -20,7 +20,7 @@ export async function GET(request) {
 
 export async function POST(request) {
     const body = await request.json();
-    const { tabName, rowNumber, status, comment } = body;
+    const { tabName, rowNumber, status, comment, name, phone } = body;
     const sheetId = process.env.GOOGLE_SHEET_ID;
 
     if (!sheetId) {
@@ -37,6 +37,12 @@ export async function POST(request) {
         }
         if (comment !== undefined) {
             await updateComment(sheetId, tabName, rowNumber, comment);
+        }
+        if (name !== undefined) {
+            await updateName(sheetId, tabName, rowNumber, name);
+        }
+        if (phone !== undefined) {
+            await updatePhone(sheetId, tabName, rowNumber, phone);
         }
         return NextResponse.json({ success: true });
     } catch (error) {

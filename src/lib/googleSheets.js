@@ -94,6 +94,46 @@ export async function updateComment(sheetId, tabName, rowNumber, comment) {
     }
 }
 
+export async function updateName(sheetId, tabName, rowNumber, name) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `${tabName}!A${rowNumber}`, // Column A is Name
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[name]],
+            },
+        });
+        return true;
+    } catch (error) {
+        console.error('Error updating name:', error);
+        throw error;
+    }
+}
+
+export async function updatePhone(sheetId, tabName, rowNumber, phone) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `${tabName}!B${rowNumber}`, // Column B is Phone
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[phone]],
+            },
+        });
+        return true;
+    } catch (error) {
+        console.error('Error updating phone:', error);
+        throw error;
+    }
+}
+
 export async function createNewSheet(sheetId, title, data) {
     const auth = await getAuth();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -237,6 +277,465 @@ export async function deleteContacts(sheetId, tabName, rowNumbers) {
         return true;
     } catch (error) {
         console.error('Error deleting contacts:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// OPPORTUNITY MANAGEMENT FUNCTIONS
+// ============================================
+
+export async function createOpportunitySheet(sheetId) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        // Check if Opportunities sheet already exists
+        const spreadsheet = await sheets.spreadsheets.get({
+            spreadsheetId: sheetId,
+        });
+
+        const opportunitySheet = spreadsheet.data.sheets.find(
+            (s) => s.properties.title === 'Opportunities'
+        );
+
+        if (opportunitySheet) {
+            return true; // Sheet already exists
+        }
+
+        // Create Opportunities sheet
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: sheetId,
+            requestBody: {
+                requests: [
+                    {
+                        addSheet: {
+                            properties: {
+                                title: 'Opportunities',
+                            },
+                        },
+                    },
+                ],
+            },
+        });
+
+        // Add header row
+        const headers = [
+            'Name',
+            'Contact Name',
+            'Contact Phone',
+            'Amount',
+            'Stage',
+            'Expected Close Date',
+            'Notes',
+            'Created Date',
+            'Source'
+        ];
+
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: 'Opportunities!A1',
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [headers],
+            },
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error creating opportunity sheet:', error);
+        throw error;
+    }
+}
+
+export async function getOpportunities(sheetId) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        // Ensure Opportunities sheet exists
+        await createOpportunitySheet(sheetId);
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: sheetId,
+            range: 'Opportunities!A:I', // All columns
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return [];
+        }
+
+        // Skip header row
+        const data = rows.slice(1).map((row, index) => ({
+            rowNumber: index + 2,
+            name: row[0] || '',
+            contactName: row[1] || '',
+            contactPhone: row[2] || '',
+            amount: row[3] || '',
+            stage: row[4] || 'Lead',
+            expectedCloseDate: row[5] || '',
+            notes: row[6] || '',
+            createdDate: row[7] || '',
+            source: row[8] || '',
+        }));
+
+        return data;
+    } catch (error) {
+        console.error('Error fetching opportunities:', error);
+        throw error;
+    }
+}
+
+export async function createOpportunity(sheetId, opportunityData) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        // Ensure Opportunities sheet exists
+        await createOpportunitySheet(sheetId);
+
+        const {
+            name,
+            contactName,
+            contactPhone,
+            amount,
+            stage,
+            expectedCloseDate,
+            notes,
+            source
+        } = opportunityData;
+
+        const createdDate = new Date().toLocaleDateString();
+
+        const values = [[
+            name || '',
+            contactName || '',
+            contactPhone || '',
+            amount || '',
+            stage || 'Lead',
+            expectedCloseDate || '',
+            notes || '',
+            createdDate,
+            source || 'Manual Entry'
+        ]];
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: sheetId,
+            range: 'Opportunities!A:I',
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: values,
+            },
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error creating opportunity:', error);
+        throw error;
+    }
+}
+
+export async function updateOpportunityStage(sheetId, rowNumber, stage) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Opportunities!E${rowNumber}`, // Column E is Stage
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[stage]],
+            },
+        });
+        return true;
+    } catch (error) {
+        console.error('Error updating opportunity stage:', error);
+        throw error;
+    }
+}
+
+export async function updateOpportunityNotes(sheetId, rowNumber, notes) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Opportunities!G${rowNumber}`, // Column G is Notes
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[notes]],
+            },
+        });
+        return true;
+    } catch (error) {
+        console.error('Error updating opportunity notes:', error);
+        throw error;
+    }
+}
+
+export async function updateOpportunityAmount(sheetId, rowNumber, amount) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Opportunities!D${rowNumber}`, // Column D is Amount
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[amount]],
+            },
+        });
+        return true;
+    } catch (error) {
+        console.error('Error updating opportunity amount:', error);
+        throw error;
+    }
+}
+
+export async function updateOpportunityCloseDate(sheetId, rowNumber, closeDate) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Opportunities!F${rowNumber}`, // Column F is Expected Close Date
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[closeDate]],
+            },
+        });
+        return true;
+    } catch (error) {
+        console.error('Error updating opportunity close date:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// TEMPLATE MANAGEMENT FUNCTIONS
+// ============================================
+
+export async function createTemplateSheet(sheetId) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        // Check if Templates sheet already exists
+        const spreadsheet = await sheets.spreadsheets.get({
+            spreadsheetId: sheetId,
+        });
+
+        const templateSheet = spreadsheet.data.sheets.find(
+            (s) => s.properties.title === 'Templates'
+        );
+
+        if (templateSheet) {
+            return true; // Sheet already exists
+        }
+
+        // Create Templates sheet
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: sheetId,
+            requestBody: {
+                requests: [
+                    {
+                        addSheet: {
+                            properties: {
+                                title: 'Templates',
+                            },
+                        },
+                    },
+                ],
+            },
+        });
+
+        // Add header row
+        const headers = [
+            'ID',
+            'Name',
+            'Message',
+            'HTML Content',
+            'Created Date',
+            'Modified Date'
+        ];
+
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: 'Templates!A1',
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [headers],
+            },
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error creating template sheet:', error);
+        throw error;
+    }
+}
+
+export async function getTemplates(sheetId) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        // Ensure Templates sheet exists
+        await createTemplateSheet(sheetId);
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: sheetId,
+            range: 'Templates!A:F', // All columns
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return [];
+        }
+
+        // Skip header row
+        const data = rows.slice(1).map((row, index) => ({
+            rowNumber: index + 2,
+            id: row[0] || '',
+            name: row[1] || '',
+            message: row[2] || '',
+            htmlContent: row[3] || '',
+            createdDate: row[4] || '',
+            modifiedDate: row[5] || '',
+        }));
+
+        return data;
+    } catch (error) {
+        console.error('Error fetching templates:', error);
+        throw error;
+    }
+}
+
+export async function createTemplate(sheetId, templateData) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        // Ensure Templates sheet exists
+        await createTemplateSheet(sheetId);
+
+        const { name, message, htmlContent } = templateData;
+
+        // Generate unique ID
+        const id = `TPL-${Date.now()}`;
+        const createdDate = new Date().toLocaleString();
+
+        const values = [[
+            id,
+            name || '',
+            message || '',
+            htmlContent || '',
+            createdDate,
+            createdDate
+        ]];
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: sheetId,
+            range: 'Templates!A:F',
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: values,
+            },
+        });
+
+        return { success: true, id };
+    } catch (error) {
+        console.error('Error creating template:', error);
+        throw error;
+    }
+}
+
+export async function updateTemplate(sheetId, rowNumber, templateData) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        const { name, message, htmlContent } = templateData;
+        const modifiedDate = new Date().toLocaleString();
+
+        // Update the entire row except ID and Created Date
+        const values = [[
+            name || '',
+            message || '',
+            htmlContent || '',
+            modifiedDate
+        ]];
+
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Templates!B${rowNumber}:E${rowNumber}`, // Columns B to E
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: values,
+            },
+        });
+
+        // Also update modified date
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: `Templates!F${rowNumber}`, // Column F is Modified Date
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[modifiedDate]],
+            },
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error updating template:', error);
+        throw error;
+    }
+}
+
+export async function deleteTemplate(sheetId, rowNumber) {
+    const auth = await getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    try {
+        // Get the Templates sheet ID
+        const spreadsheet = await sheets.spreadsheets.get({
+            spreadsheetId: sheetId,
+        });
+
+        const sheet = spreadsheet.data.sheets.find(
+            (s) => s.properties.title === 'Templates'
+        );
+
+        if (!sheet) {
+            throw new Error('Templates sheet not found');
+        }
+
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: sheetId,
+            requestBody: {
+                requests: [
+                    {
+                        deleteDimension: {
+                            range: {
+                                sheetId: sheet.properties.sheetId,
+                                dimension: 'ROWS',
+                                startIndex: rowNumber - 1, // 0-based index
+                                endIndex: rowNumber,
+                            },
+                        },
+                    },
+                ],
+            },
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error deleting template:', error);
         throw error;
     }
 }

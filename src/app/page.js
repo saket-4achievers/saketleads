@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import ContactCard from '@/components/ContactCard';
-import { Upload, RefreshCw, FileSpreadsheet, Plus, Trash2, MessageSquare, Share2 } from 'lucide-react';
+import SendTemplateModal from '@/components/SendTemplateModal';
+import { Upload, RefreshCw, FileSpreadsheet, Plus, Trash2, MessageSquare, Share2, TrendingUp, FileText } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Home() {
     const [contacts, setContacts] = useState([]);
@@ -13,6 +15,7 @@ export default function Home() {
     const [showUpload, setShowUpload] = useState(false);
     const [selectedRows, setSelectedRows] = useState(new Set());
     const [statusFilter, setStatusFilter] = useState('All');
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
 
     useEffect(() => {
         fetchSheets();
@@ -99,6 +102,52 @@ export default function Home() {
             });
         } catch (error) {
             console.error('Error updating comment:', error);
+            // Revert on error
+            fetchContacts(currentSheet);
+        }
+    };
+
+    const handleNameChange = async (rowNumber, newName) => {
+        // Optimistic update
+        setContacts(prev => prev.map(c =>
+            c.rowNumber === rowNumber ? { ...c, name: newName } : c
+        ));
+
+        try {
+            await fetch('/api/contacts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tabName: currentSheet,
+                    rowNumber,
+                    name: newName
+                })
+            });
+        } catch (error) {
+            console.error('Error updating name:', error);
+            // Revert on error
+            fetchContacts(currentSheet);
+        }
+    };
+
+    const handlePhoneChange = async (rowNumber, newPhone) => {
+        // Optimistic update
+        setContacts(prev => prev.map(c =>
+            c.rowNumber === rowNumber ? { ...c, phone: newPhone } : c
+        ));
+
+        try {
+            await fetch('/api/contacts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tabName: currentSheet,
+                    rowNumber,
+                    phone: newPhone
+                })
+            });
+        } catch (error) {
+            console.error('Error updating phone:', error);
             // Revert on error
             fetchContacts(currentSheet);
         }
@@ -262,6 +311,22 @@ export default function Home() {
                         Contact Manager
                     </h1>
                     <div className="flex gap-2">
+                        <Link href="/templates">
+                            <button
+                                className="p-2 text-purple-500 hover:text-purple-700 rounded-full hover:bg-purple-50"
+                                title="Manage Templates"
+                            >
+                                <FileText size={20} />
+                            </button>
+                        </Link>
+                        <Link href="/opportunities">
+                            <button
+                                className="p-2 text-blue-500 hover:text-blue-700 rounded-full hover:bg-blue-50"
+                                title="View Opportunities"
+                            >
+                                <TrendingUp size={20} />
+                            </button>
+                        </Link>
                         {currentSheet && (
                             <button
                                 onClick={handleDeleteSheet}
@@ -351,6 +416,8 @@ export default function Home() {
                                 contact={contact}
                                 onStatusChange={handleStatusChange}
                                 onCommentChange={handleCommentChange}
+                                onNameChange={handleNameChange}
+                                onPhoneChange={handlePhoneChange}
                                 tabName={currentSheet}
                                 isSelected={selectedRows.has(contact.rowNumber)}
                                 onToggleSelect={toggleSelect}
@@ -386,6 +453,13 @@ export default function Home() {
                             >
                                 <Share2 size={20} />
                                 Share
+                            </button>
+                            <button
+                                onClick={() => setShowTemplateModal(true)}
+                                className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg flex flex-col items-center text-xs gap-1"
+                            >
+                                <FileText size={20} />
+                                Template
                             </button>
                         </div>
                     </div>
@@ -441,6 +515,14 @@ export default function Home() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Send Template Modal */}
+            {showTemplateModal && selectedRows.size > 0 && (
+                <SendTemplateModal
+                    contacts={contacts.filter(c => selectedRows.has(c.rowNumber))}
+                    onClose={() => setShowTemplateModal(false)}
+                />
             )}
         </main>
     );
