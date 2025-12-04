@@ -1,13 +1,27 @@
 import React from 'react';
-import { Edit2, Trash2, FileText, Calendar } from 'lucide-react';
+import { Edit2, Trash2, FileText, Calendar, Paperclip } from 'lucide-react';
+
+// Available PDF files for label lookup
+const AVAILABLE_PDFS = [
+    { name: '4Achievers – Advanced n8n + AI Agents Professional Program 2025.pdf', label: 'n8n + AI Agents Program 2025' },
+    { name: '4Achievers – Data Science & GenAI Syllabus.pdf', label: 'Data Science & GenAI' },
+    { name: '4Achievers – Detailed QA Automation Syllabus.pdf', label: 'QA Automation' },
+    { name: '4Achievers – DevOps & Cloud Syllabus.pdf', label: 'DevOps & Cloud' },
+    { name: '4Achievers – UI_UX Design Syllabus.pdf', label: 'UI/UX Design' },
+];
 
 export default function TemplateCard({ template, onEdit, onDelete }) {
-    const { name, message, htmlContent, modifiedDate, rowNumber } = template;
+    const { name, message, pdfFile, modifiedDate, rowNumber } = template;
 
     // Truncate message for preview
     const truncatedMessage = message.length > 100
         ? message.substring(0, 100) + '...'
         : message;
+
+    const getPdfLabel = (fileName) => {
+        const pdf = AVAILABLE_PDFS.find(p => p.name === fileName);
+        return pdf?.label || fileName;
+    };
 
     return (
         <div className="bg-white p-5 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-shadow">
@@ -34,12 +48,12 @@ export default function TemplateCard({ template, onEdit, onDelete }) {
                 </p>
             </div>
 
-            {/* HTML Content Indicator */}
-            {htmlContent && (
+            {/* PDF Attachment Indicator */}
+            {pdfFile && (
                 <div className="mb-3">
                     <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
-                        <FileText size={12} />
-                        Contains HTML/PDF content
+                        <Paperclip size={12} />
+                        {getPdfLabel(pdfFile)}
                     </span>
                 </div>
             )}

@@ -1,9 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Eye, Download, FileText } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import React, { useState, useEffect } from 'react';
+import { X, Send, Eye, FileText, Paperclip, ExternalLink, Copy, Check } from 'lucide-react';
+
+// Available PDF files
+const AVAILABLE_PDFS = [
+    { name: '4Achievers – Advanced n8n + AI Agents Professional Program 2025.pdf', label: 'n8n + AI Agents Program 2025' },
+    { name: '4Achievers – Data Science & GenAI Syllabus.pdf', label: 'Data Science & GenAI' },
+    { name: '4Achievers – Detailed QA Automation Syllabus.pdf', label: 'QA Automation' },
+    { name: '4Achievers – DevOps & Cloud Syllabus.pdf', label: 'DevOps & Cloud' },
+    { name: '4Achievers – UI_UX Design Syllabus.pdf', label: 'UI/UX Design' },
+];
 
 export default function SendTemplateModal({ contacts, onClose }) {
     const [templates, setTemplates] = useState([]);
@@ -12,8 +19,7 @@ export default function SendTemplateModal({ contacts, onClose }) {
     const [loading, setLoading] = useState(true);
     const [showPreview, setShowPreview] = useState(false);
     const [previewContact, setPreviewContact] = useState(contacts[0] || null);
-    const [generatingPdf, setGeneratingPdf] = useState(false);
-    const previewRef = useRef(null);
+    const [copiedPdfLink, setCopiedPdfLink] = useState(false);
 
     useEffect(() => {
         fetchTemplates();
@@ -40,36 +46,27 @@ export default function SendTemplateModal({ contacts, onClose }) {
             .replace(/\{\{phone\}\}/g, contact.phone || '');
     };
 
-    const generatePDF = async (contact, template) => {
-        if (!template?.htmlContent) {
-            return null;
-        }
+    const getPdfUrl = (fileName) => {
+        // Get full URL for sharing
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        return `${baseUrl}/pdfffiles/${encodeURIComponent(fileName)}`;
+    };
 
-        try {
-            const element = previewRef.current;
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-            });
+    const getPdfLabel = (fileName) => {
+        const pdf = AVAILABLE_PDFS.find(p => p.name === fileName);
+        return pdf?.label || fileName;
+    };
 
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4',
-            });
-
-            const imgWidth = 210;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-
-            // Return blob for WhatsApp sharing
-            return pdf.output('blob');
-        } catch (error) {
-            console.error('Error generating PDF:', error);
-            return null;
+    const copyPdfLink = async () => {
+        if (currentTemplate?.pdfFile) {
+            const pdfUrl = getPdfUrl(currentTemplate.pdfFile);
+            try {
+                await navigator.clipboard.writeText(pdfUrl);
+                setCopiedPdfLink(true);
+                setTimeout(() => setCopiedPdfLink(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
         }
     };
 
@@ -85,10 +82,16 @@ export default function SendTemplateModal({ contacts, onClose }) {
         }
 
         // Send to each contact
-        // Send to each contact
         for (const contact of contacts) {
             for (const template of selectedTemplates) {
-                const message = replaceVariables(template.message, contact);
+                let message = replaceVariables(template.message, contact);
+                
+                // If template has PDF attachment, add the PDF link to the message
+                if (template.pdfFile) {
+                    const pdfUrl = getPdfUrl(template.pdfFile);
+                    message += `\n\n📄 *${getPdfLabel(template.pdfFile)}*\n${pdfUrl}`;
+                }
+
                 const cleanPhone = contact.phone.replace(/\D/g, '');
                 const encodedMessage = encodeURIComponent(message);
 
@@ -105,64 +108,8 @@ export default function SendTemplateModal({ contacts, onClose }) {
         onClose();
     };
 
-    const handleDownloadPDF = async () => {
-        // Use current template for preview download
-        const templateToDownload = currentTemplate;
-
-        if (!templateToDownload?.htmlContent || !previewContact) {
-            alert('No HTML content to generate PDF');
-            return;
-        }
-
-        setGeneratingPdf(true);
-        try {
-            const element = previewRef.current;
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                allowTaint: true,
-                backgroundColor: '#ffffff',
-                onclone: (clonedDoc) => {
-                    const clonedElement = clonedDoc.querySelector('[data-html-preview]');
-                    if (clonedElement) {
-                        clonedElement.style.color = '#000000';
-                        clonedElement.style.backgroundColor = '#ffffff';
-                    }
-                },
-                ignoreElements: (element) => {
-                    return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
-                }
-            });
-
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4',
-            });
-
-            const imgWidth = 210;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            pdf.save(`${templateToDownload.name}-${previewContact.name}.pdf`);
-
-            alert('PDF downloaded successfully!');
-        } catch (error) {
-            console.error('Error generating PDF:', error);
-            alert('Failed to generate PDF. Please try simplifying your HTML content or check the console for details.');
-        } finally {
-            setGeneratingPdf(false);
-        }
-    };
-
     const previewMessage = currentTemplate && previewContact
         ? replaceVariables(currentTemplate.message, previewContact)
-        : '';
-
-    const previewHtml = currentTemplate && previewContact && currentTemplate.htmlContent
-        ? replaceVariables(currentTemplate.htmlContent, previewContact)
         : '';
 
     const addTemplate = () => {
@@ -225,7 +172,7 @@ export default function SendTemplateModal({ contacts, onClose }) {
                                         <option value="">-- Select a template --</option>
                                         {templates.map((template) => (
                                             <option key={template.id} value={template.id}>
-                                                {template.name}
+                                                {template.name} {template.pdfFile ? '📄' : ''}
                                             </option>
                                         ))}
                                     </select>
@@ -244,6 +191,7 @@ export default function SendTemplateModal({ contacts, onClose }) {
                                         {selectedTemplates.map(template => (
                                             <div key={template.id} className="bg-green-50 border border-green-200 text-green-800 px-3 py-1 rounded-full text-sm flex items-center gap-2">
                                                 <span>{template.name}</span>
+                                                {template.pdfFile && <Paperclip size={12} />}
                                                 <button
                                                     onClick={() => removeTemplate(template.id)}
                                                     className="hover:text-red-500"
@@ -306,31 +254,65 @@ export default function SendTemplateModal({ contacts, onClose }) {
                                         </div>
                                     </div>
 
-                                    {/* HTML/PDF Preview */}
-                                    {previewHtml && (
+                                    {/* PDF Attachment Preview */}
+                                    {currentTemplate.pdfFile && (
                                         <div>
                                             <div className="flex justify-between items-center mb-2">
-                                                <h3 className="text-sm font-semibold text-gray-700">PDF Preview:</h3>
-                                                <button
-                                                    onClick={handleDownloadPDF}
-                                                    disabled={generatingPdf}
-                                                    className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                                >
-                                                    <Download size={14} />
-                                                    {generatingPdf ? 'Generating...' : 'Download PDF'}
-                                                </button>
+                                                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Paperclip size={16} />
+                                                    PDF Attachment:
+                                                </h3>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={copyPdfLink}
+                                                        className="text-xs bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 flex items-center gap-1"
+                                                    >
+                                                        {copiedPdfLink ? <Check size={14} /> : <Copy size={14} />}
+                                                        {copiedPdfLink ? 'Copied!' : 'Copy Link'}
+                                                    </button>
+                                                    <a
+                                                        href={getPdfUrl(currentTemplate.pdfFile)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 flex items-center gap-1"
+                                                    >
+                                                        <ExternalLink size={14} />
+                                                        Open PDF
+                                                    </a>
+                                                </div>
                                             </div>
-                                            <div className="border border-gray-300 rounded-lg p-4 bg-white max-h-96 overflow-y-auto">
-                                                <div
-                                                    ref={previewRef}
-                                                    data-html-preview="true"
-                                                    style={{ color: '#000000', backgroundColor: '#ffffff' }}
-                                                    dangerouslySetInnerHTML={{ __html: previewHtml }}
+                                            <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <FileText className="text-blue-600" size={24} />
+                                                    <div>
+                                                        <p className="font-medium text-blue-800">
+                                                            {getPdfLabel(currentTemplate.pdfFile)}
+                                                        </p>
+                                                        <p className="text-xs text-blue-600">
+                                                            Will be shared as a link in the WhatsApp message
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <iframe
+                                                    src={`/pdfffiles/${encodeURIComponent(currentTemplate.pdfFile)}`}
+                                                    className="w-full h-64 border border-gray-300 rounded-lg bg-white"
+                                                    title="PDF Preview"
                                                 />
                                             </div>
-                                            <p className="text-xs text-gray-500 mt-2">
-                                                Note: PDF will be generated when sending. You can download it manually using the button above.
-                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Final Message Preview with PDF Link */}
+                                    {currentTemplate.pdfFile && (
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-gray-700 mb-2">Full Message (with PDF link):</h3>
+                                            <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
+                                                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                                                    {previewMessage}
+                                                    {'\n\n'}📄 *{getPdfLabel(currentTemplate.pdfFile)}*
+                                                    {'\n'}{getPdfUrl(currentTemplate.pdfFile)}
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

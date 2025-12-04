@@ -559,7 +559,7 @@ export async function createTemplateSheet(sheetId) {
             'ID',
             'Name',
             'Message',
-            'HTML Content',
+            'PDF File',
             'Created Date',
             'Modified Date'
         ];
@@ -604,7 +604,7 @@ export async function getTemplates(sheetId) {
             id: row[0] || '',
             name: row[1] || '',
             message: row[2] || '',
-            htmlContent: row[3] || '',
+            pdfFile: row[3] || '',
             createdDate: row[4] || '',
             modifiedDate: row[5] || '',
         }));
@@ -624,7 +624,7 @@ export async function createTemplate(sheetId, templateData) {
         // Ensure Templates sheet exists
         await createTemplateSheet(sheetId);
 
-        const { name, message, htmlContent } = templateData;
+        const { name, message, pdfFile } = templateData;
 
         // Generate unique ID
         const id = `TPL-${Date.now()}`;
@@ -634,7 +634,7 @@ export async function createTemplate(sheetId, templateData) {
             id,
             name || '',
             message || '',
-            htmlContent || '',
+            pdfFile || '',
             createdDate,
             createdDate
         ]];
@@ -660,14 +660,14 @@ export async function updateTemplate(sheetId, rowNumber, templateData) {
     const sheets = google.sheets({ version: 'v4', auth });
 
     try {
-        const { name, message, htmlContent } = templateData;
+        const { name, message, pdfFile } = templateData;
         const modifiedDate = new Date().toLocaleString();
 
         // Update the entire row except ID and Created Date
         const values = [[
             name || '',
             message || '',
-            htmlContent || '',
+            pdfFile || '',
             modifiedDate
         ]];
 

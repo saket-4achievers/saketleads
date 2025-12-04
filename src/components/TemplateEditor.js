@@ -1,18 +1,22 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { Save, X, Eye, Code, FileText, Download } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import React, { useState, useEffect } from 'react';
+import { Save, X, FileText, Paperclip, Eye, ExternalLink } from 'lucide-react';
+
+// Available PDF files
+const AVAILABLE_PDFS = [
+    { name: '4Achievers – Advanced n8n + AI Agents Professional Program 2025.pdf', label: 'n8n + AI Agents Program 2025' },
+    { name: '4Achievers – Data Science & GenAI Syllabus.pdf', label: 'Data Science & GenAI' },
+    { name: '4Achievers – Detailed QA Automation Syllabus.pdf', label: 'QA Automation' },
+    { name: '4Achievers – DevOps & Cloud Syllabus.pdf', label: 'DevOps & Cloud' },
+    { name: '4Achievers – UI_UX Design Syllabus.pdf', label: 'UI/UX Design' },
+];
 
 export default function TemplateEditor({ template, onSave, onCancel }) {
     const [name, setName] = useState(template?.name || '');
     const [message, setMessage] = useState(template?.message || '');
-    const [htmlContent, setHtmlContent] = useState(template?.htmlContent || '');
-    const [showPreview, setShowPreview] = useState(false);
-    const [showHtmlEditor, setShowHtmlEditor] = useState(false);
-    const [generatingPdf, setGeneratingPdf] = useState(false);
-    const previewRef = useRef(null);
+    const [pdfFile, setPdfFile] = useState(template?.pdfFile || '');
+    const [showPdfPreview, setShowPdfPreview] = useState(false);
 
     const handleSave = () => {
         if (!name.trim() || !message.trim()) {
@@ -23,7 +27,7 @@ export default function TemplateEditor({ template, onSave, onCancel }) {
         onSave({
             name: name.trim(),
             message: message.trim(),
-            htmlContent: htmlContent.trim(),
+            pdfFile: pdfFile,
         });
     };
 
@@ -40,47 +44,8 @@ export default function TemplateEditor({ template, onSave, onCancel }) {
         }, 0);
     };
 
-    const generatePDF = async () => {
-        if (!htmlContent) {
-            alert('No HTML content to generate PDF');
-            return;
-        }
-
-        setGeneratingPdf(true);
-        try {
-            const element = previewRef.current;
-
-            if (!element) {
-                throw new Error('Preview element not found');
-            }
-
-            // Create PDF directly from HTML using jsPDF
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4',
-            });
-
-            // Add title
-            pdf.setFontSize(16);
-            pdf.setFont(undefined, 'bold');
-            pdf.text(name || 'Template', 20, 20);
-
-            // Add content as text (simple fallback)
-            pdf.setFontSize(12);
-            pdf.setFont(undefined, 'normal');
-            const textContent = element.textContent || htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            const lines = pdf.splitTextToSize(textContent, 170);
-            pdf.text(lines, 20, 35);
-
-            pdf.save(`${name || 'template'}.pdf`);
-            alert('PDF downloaded successfully!');
-        } catch (error) {
-            console.error('Error generating PDF:', error);
-            alert(`Failed to generate PDF: ${error.message}\n\nPlease check the console for details.`);
-        } finally {
-            setGeneratingPdf(false);
-        }
+    const getPdfUrl = (fileName) => {
+        return `/pdfffiles/${encodeURIComponent(fileName)}`;
     };
 
     return (
@@ -145,69 +110,71 @@ export default function TemplateEditor({ template, onSave, onCancel }) {
                 </p>
             </div>
 
-            {/* HTML Content Section */}
+            {/* PDF Attachment Section */}
             <div className="mb-6">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="block text-sm font-semibold text-gray-700">
-                        HTML Content (Optional - for PDF generation)
-                    </label>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setShowHtmlEditor(!showHtmlEditor)}
-                            className={`text-xs px-3 py-1 rounded flex items-center gap-1 ${showHtmlEditor
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            <Code size={14} />
-                            {showHtmlEditor ? 'Hide' : 'Show'} HTML Editor
-                        </button>
-                        <button
-                            onClick={() => setShowPreview(!showPreview)}
-                            className={`text-xs px-3 py-1 rounded flex items-center gap-1 ${showPreview
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            <Eye size={14} />
-                            {showPreview ? 'Hide' : 'Show'} Preview
-                        </button>
-                    </div>
-                </div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Paperclip size={16} className="inline mr-1" />
+                    Attach PDF (Optional)
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                    Select a PDF syllabus to attach with this template
+                </p>
+                
+                <select
+                    value={pdfFile}
+                    onChange={(e) => {
+                        setPdfFile(e.target.value);
+                        setShowPdfPreview(false);
+                    }}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
+                >
+                    <option value="">-- No PDF attachment --</option>
+                    {AVAILABLE_PDFS.map((pdf) => (
+                        <option key={pdf.name} value={pdf.name}>
+                            {pdf.label}
+                        </option>
+                    ))}
+                </select>
 
-                {showHtmlEditor && (
-                    <textarea
-                        value={htmlContent}
-                        onChange={(e) => setHtmlContent(e.target.value)}
-                        placeholder="Enter HTML code here (e.g., <h1>Hello {{name}}</h1><p>Your details...</p>)"
-                        rows={10}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none font-mono text-sm bg-gray-50 mb-3"
-                    />
-                )}
-
-                {showPreview && htmlContent && (
-                    <div className="border border-gray-300 rounded-lg p-4 bg-white mb-3">
-                        <div className="flex justify-between items-center mb-3 pb-3 border-b">
-                            <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-                                <FileText size={16} />
-                                PDF Preview
-                            </h3>
-                            <button
-                                onClick={generatePDF}
-                                disabled={generatingPdf}
-                                className="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                            >
-                                <Download size={14} />
-                                {generatingPdf ? 'Generating...' : 'Download PDF'}
-                            </button>
+                {/* PDF Preview/Actions */}
+                {pdfFile && (
+                    <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <FileText className="text-blue-600" size={20} />
+                                <span className="text-sm font-medium text-blue-800">
+                                    {AVAILABLE_PDFS.find(p => p.name === pdfFile)?.label || pdfFile}
+                                </span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowPdfPreview(!showPdfPreview)}
+                                    className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 flex items-center gap-1"
+                                >
+                                    <Eye size={14} />
+                                    {showPdfPreview ? 'Hide' : 'Preview'}
+                                </button>
+                                <a
+                                    href={getPdfUrl(pdfFile)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 flex items-center gap-1"
+                                >
+                                    <ExternalLink size={14} />
+                                    Open
+                                </a>
+                            </div>
                         </div>
-                        <div
-                            ref={previewRef}
-                            data-html-preview="true"
-                            className="border border-gray-200 rounded p-4 bg-white"
-                            style={{ color: '#000000', backgroundColor: '#ffffff' }}
-                            dangerouslySetInnerHTML={{ __html: htmlContent }}
-                        />
+                        
+                        {showPdfPreview && (
+                            <div className="mt-3">
+                                <iframe
+                                    src={getPdfUrl(pdfFile)}
+                                    className="w-full h-96 border border-gray-300 rounded-lg bg-white"
+                                    title="PDF Preview"
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

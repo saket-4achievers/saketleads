@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { name, message, htmlContent } = body;
+        const { name, message, pdfFile } = body;
 
         if (!name || !message) {
             return NextResponse.json(
@@ -38,7 +38,7 @@ export async function POST(request) {
         const result = await createTemplate(SHEET_ID, {
             name,
             message,
-            htmlContent: htmlContent || ''
+            pdfFile: pdfFile || ''
         });
 
         return NextResponse.json({ success: true, ...result });
@@ -55,7 +55,7 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json();
-        const { rowNumber, name, message, htmlContent } = body;
+        const { rowNumber, name, message, pdfFile } = body;
 
         if (!rowNumber || !name || !message) {
             return NextResponse.json(
@@ -67,7 +67,7 @@ export async function PUT(request) {
         await updateTemplate(SHEET_ID, rowNumber, {
             name,
             message,
-            htmlContent: htmlContent || ''
+            pdfFile: pdfFile || ''
         });
 
         return NextResponse.json({ success: true });
